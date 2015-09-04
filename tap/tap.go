@@ -37,6 +37,6 @@ func (ifce *Interface) Read(p []byte) (int, error) {
 }
 
 // Close the interface.
-func (ifce *Interface) Close(p []byte) error {
+func (ifce *Interface) Close() error {
 	return ifce.file.Close()
 }

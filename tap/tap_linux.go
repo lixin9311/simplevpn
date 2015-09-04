@@ -2,6 +2,7 @@
 package tap
 
 import (
+	"os"
 	"strings"
 	"syscall"
 	"unsafe"

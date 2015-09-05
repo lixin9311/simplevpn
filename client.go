@@ -14,7 +14,7 @@ func main() {
         log.Fatalln("Failed to create TAP interface:", err)
     }
     defer ifce.Close()
-    conn, err := net.Dial("udp", "6.lucus.moe:9023")
+    conn, err := net.Dial("udp", "10.205.12.109:9023")
     if err != nil {
         log.Fatalln("Failed to dial:", err)
     }

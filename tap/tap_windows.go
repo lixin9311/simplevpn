@@ -102,9 +102,17 @@ func newTAP() (ifce *Interface, err error) {
 	if err != nil {
 		return nil, errors.New("Failed to open device:" + err.Error())
 	}
+	var bytesReturned uint32
+	fd := os.NewFile(uintptr(file), path)
+	mac := make([]byte, 6)
+	err = syscall.DeviceIoControl(file, tap_win_ioctl_get_mac, &mac[0], uint32(len(mac)), &mac[0], uint32(len(mac)), &bytesReturned, nil)
+	if err != nil {
+		log.Println("Failed to get mac address of the interface: ", err)
+		fd.Close()
+		return nil, err
+	}
 	rdbbuf := make([]byte, syscall.MAXIMUM_REPARSE_DATA_BUFFER_SIZE)
 	code := []byte{0x01, 0x00, 0x00, 0x00}
-	var bytesReturned uint32
 	err = syscall.DeviceIoControl(file, tap_ioctl_set_media_status, &code[0], uint32(4), &rdbbuf[0], uint32(len(rdbbuf)), &bytesReturned, nil)
 	if err != nil {
 		return nil, errors.New("Failed to bring up device:" + err.Error())
@@ -115,21 +123,6 @@ func newTAP() (ifce *Interface, err error) {
 	//if err != nil {
 	//	log.Fatalln("code2 err:", err)
 	//}
-	fd := os.NewFile(uintptr(file), path)
-	ifce = &Interface{tap: true, file: fd, name: name}
-	ifce.mac, err = ifce.macaddr()
+	ifce = &Interface{tap: true, file: fd, name: name, mac: mac}
 	return
-}
-
-// Get the mac address of the interface.
-func (ifce *Interface) macaddr() ([]byte, error) {
-	file := syscall.Handle(ifce.file.Fd())
-	mac := make([]byte, 6)
-	var bytesReturned uint32
-	err := syscall.DeviceIoControl(file, tap_ioctl_set_media_status, &mac[0], uint32(len(mac)), &mac[0], uint32(len(mac)), &bytesReturned, nil)
-	if err != nil {
-		log.Println("Failed to get mac address of the interface: ", err)
-		return nil, err
-	}
-	return mac, nil
 }

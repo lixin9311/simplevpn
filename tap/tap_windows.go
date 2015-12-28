@@ -67,7 +67,7 @@ func getdeviceid() (string, string, error) {
 				log.Println("err read NetCfgInstanceId:", err)
 				goto next
 			}
-			name, _, err = key.GetStringValue("DeviceInstanceID")
+			name, _, err := key.GetStringValue("DeviceInstanceID")
 			if err != nil {
 				log.Println("err read DeviceInstanceID:", err)
 				goto next

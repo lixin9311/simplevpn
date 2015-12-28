@@ -82,7 +82,7 @@ func getdeviceid() (string, string, error) {
 }
 
 // NewTAP find and open a TAP device.
-func NewTAP() (ifce *Interface, err error) {
+func newTAP() (ifce *Interface, err error) {
 	deviceid, name, err := getdeviceid()
 	if err != nil {
 		return nil, errors.New("Failed to get DeviceId:" + err.Error())
@@ -117,5 +117,19 @@ func NewTAP() (ifce *Interface, err error) {
 	//}
 	fd := os.NewFile(uintptr(file), path)
 	ifce = &Interface{tap: true, file: fd, name: name}
+	ifce.mac, err = ifce.macaddr()
 	return
+}
+
+// Get the mac address of the interface.
+func (ifce *Interface) macaddr() ([]byte, error) {
+	file := syscall.Handle(ifce.file.Fd())
+	mac := make([]byte, 6)
+	var bytesReturned uint32
+	err := syscall.DeviceIoControl(file, tap_ioctl_set_media_status, &mac[0], uint32(len(mac)), &mac[0], uint32(len(mac)), &bytesReturned, nil)
+	if err != nil {
+		log.Println("Failed to get mac address of the interface: ", err)
+		return nil, err
+	}
+	return mac, nil
 }

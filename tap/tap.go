@@ -9,6 +9,13 @@ type Interface struct {
 	tap  bool
 	file *os.File
 	name string
+	mac  []byte
+}
+
+// Create a new tap device.
+// Windows version behaves a little bit differently to Linux version.
+func NewTAP() (ifce *Interface, err error) {
+	return newTAP()
 }
 
 // Returns true if ifce is a TUN interface, otherwise returns false;
@@ -39,4 +46,9 @@ func (ifce *Interface) Read(p []byte) (int, error) {
 // Close the interface.
 func (ifce *Interface) Close() error {
 	return ifce.file.Close()
+}
+
+// Mac address of the interface.
+func (ifce *Interface) MacAddr() []byte {
+	return ifce.mac
 }

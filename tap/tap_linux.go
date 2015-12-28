@@ -2,6 +2,7 @@
 package tap
 
 import (
+	"net"
 	"os"
 	"strings"
 	"syscall"
@@ -35,7 +36,7 @@ func createInterface(fd uintptr, ifName string, flags uint16) (createdIFName str
 
 // NewTAP creates a new tap interface.
 // Windows version behaves a little bit differently to Linux version.
-func NewTAP() (ifce *Interface, err error) {
+func newTAP() (ifce *Interface, err error) {
 	file, err := os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -45,5 +46,19 @@ func NewTAP() (ifce *Interface, err error) {
 		return nil, err
 	}
 	ifce = &Interface{tap: true, file: file, name: name}
+	ifce.mac, err = ifce.macaddr()
 	return
+}
+
+func (ifce *Interface) macaddr() ([]byte, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, nil
+	}
+	for _, v := range ifaces {
+		if v.Name == ifce.name {
+			return []byte(v.HardwareAddr), nil
+		}
+	}
+	return nil, nil
 }

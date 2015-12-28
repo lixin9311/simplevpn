@@ -34,45 +34,56 @@ func tap_control_code(request, method uint32) uint32 {
 }
 
 // GetDeviceId finds out a TAP device from registry, it requires privileged right.
-func getdeviceid() (string, error) {
+func getdeviceid() (string, string, error) {
 	// TAP driver key location
 	regkey := `SYSTEM\CurrentControlSet\Control\Class\{4D36E972-E325-11CE-BFC1-08002BE10318}`
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, regkey, registry.ALL_ACCESS)
 	if err != nil {
-		log.Fatalln("Cannot open the reg key:", err, "Have you installed TAP driver?")
+		log.Println("Cannot open the reg key:", err, "Please run this program with privileged right.")
+		return "", "", err
 	}
 	defer k.Close()
 	// read all subkeys
 	keys, err := k.ReadSubKeyNames(-1)
 	if err != nil {
-		log.Fatalln("Cannot read subkeys:", err, "Please run this program with privileged right.")
+		log.Println("Cannot read subkeys:", err, "Please run this program with privileged right.")
+		return "", "", err
 	}
 	// find the one with ComponentId == "tap0901"
 	for _, v := range keys {
 		key, err := registry.OpenKey(registry.LOCAL_MACHINE, regkey+"\\"+v, registry.ALL_ACCESS)
 		if err != nil {
-			log.Fatalln("Failed to open subkey:", err)
+			log.Println("Failed to open subkey:", err)
+			continue
 		}
 		val, _, err := key.GetStringValue("ComponentId")
 		if err != nil {
 			log.Println("Failed to get subkey value:", err)
+			goto next
 		}
 		if val == "tap0901" {
 			val, _, err = key.GetStringValue("NetCfgInstanceId")
 			if err != nil {
-				log.Fatalln("err read DeviceID:", err)
+				log.Println("err read NetCfgInstanceId:", err)
+				goto next
+			}
+			name, _, err = key.GetStringValue("DeviceInstanceID")
+			if err != nil {
+				log.Println("err read DeviceInstanceID:", err)
+				goto next
 			}
 			key.Close()
-			return val, nil
+			return val, name, nil
 		}
+	next:
 		key.Close()
 	}
-	return "", errors.New("Device not found")
+	return "", "", errors.New("Device not found")
 }
 
 // NewTAP find and open a TAP device.
 func NewTAP() (ifce *Interface, err error) {
-	deviceid, err := getdeviceid()
+	deviceid, name, err := getdeviceid()
 	if err != nil {
 		return nil, errors.New("Failed to get DeviceId:" + err.Error())
 	}
@@ -81,6 +92,7 @@ func NewTAP() (ifce *Interface, err error) {
 	if err != nil {
 		return nil, errors.New("Invalid Device path:" + err.Error())
 	}
+	// type Handle uintptr
 	file, err := syscall.CreateFile(pathp, syscall.GENERIC_READ|syscall.GENERIC_WRITE, uint32(syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE), nil, syscall.OPEN_EXISTING, syscall.FILE_ATTRIBUTE_SYSTEM, 0)
 	defer func() {
 		if err := recover(); err != nil {
@@ -104,6 +116,6 @@ func NewTAP() (ifce *Interface, err error) {
 	//	log.Fatalln("code2 err:", err)
 	//}
 	fd := os.NewFile(uintptr(file), path)
-	ifce = &Interface{tap: true, file: fd, name: "TAP"}
+	ifce = &Interface{tap: true, file: fd, name: name}
 	return
 }

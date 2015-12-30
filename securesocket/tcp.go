@@ -5,32 +5,32 @@ import (
 	"net"
 )
 
-type TCPConn struct {
-	*net.TCPConn
+type Conn struct {
+	net.Conn
 	*Cipher
 	readBuf  []byte
 	writeBuf []byte
 }
 
-func NewTCPConn(c *net.TCPConn, cipher *Cipher) *TCPConn {
-	return &TCPConn{
-		TCPConn:  c,
+func NewConn(c net.Conn, cipher *Cipher) *Conn {
+	return &Conn{
+		Conn:     c,
 		Cipher:   cipher,
 		readBuf:  leakyBuf.Get(),
 		writeBuf: leakyBuf.Get(),
 	}
 }
 
-func (c *TCPConn) Close() error {
+func (c *Conn) Close() error {
 	leakyBuf.Put(c.readBuf)
 	leakyBuf.Put(c.writeBuf)
-	return c.TCPConn.Close()
+	return c.Conn.Close()
 }
 
-func (c *TCPConn) Read(b []byte) (n int, err error) {
+func (c *Conn) Read(b []byte) (n int, err error) {
 	if c.dec == nil {
 		iv := make([]byte, c.info.ivLen)
-		if _, err = io.ReadFull(c.TCPConn, iv); err != nil {
+		if _, err = io.ReadFull(c.Conn, iv); err != nil {
 			return
 		}
 		if err = c.initDecrypt(iv); err != nil {
@@ -45,14 +45,14 @@ func (c *TCPConn) Read(b []byte) (n int, err error) {
 		cipherData = cipherData[:len(b)]
 	}
 
-	n, err = c.TCPConn.Read(cipherData)
+	n, err = c.Conn.Read(cipherData)
 	if n > 0 {
 		c.decrypt(b[0:n], cipherData[0:n])
 	}
 	return
 }
 
-func (c *TCPConn) Write(b []byte) (n int, err error) {
+func (c *Conn) Write(b []byte) (n int, err error) {
 	var iv []byte
 	if c.enc == nil {
 		iv, err = c.initEncrypt()
@@ -76,6 +76,6 @@ func (c *TCPConn) Write(b []byte) (n int, err error) {
 	}
 
 	c.encrypt(cipherData[len(iv):], b)
-	n, err = c.TCPConn.Write(cipherData)
+	n, err = c.Conn.Write(cipherData)
 	return
 }

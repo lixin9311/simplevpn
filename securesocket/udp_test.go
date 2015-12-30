@@ -25,7 +25,7 @@ func TestSecureUdp(t *testing.T) {
 		t.Fatal(err)
 	}
 	go func() {
-		secureConn := NewUDPConn(ln, cipher.Copy())
+		secureConn := NewPacketConn(ln, cipher.Copy())
 		buf := make([]byte, 1500)
 		n, src, err := secureConn.ReadFrom(buf)
 		if err != nil {
@@ -41,22 +41,17 @@ func TestSecureUdp(t *testing.T) {
 		return
 	}()
 	time.Sleep(100 * time.Millisecond)
-	host, port, err := net.SplitHostPort(Addr.String())
+	ln2, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	host = "localhost"
-	conn, err := net.Dial("udp", host+":"+port)
-	if err != nil {
-		t.Fatal(err)
-	}
-	secureconn := NewUDPConn(conn.(*net.UDPConn), cipher.Copy())
-	_, err = secureconn.Write(data)
+	secureconn := NewPacketConn(ln2, cipher.Copy())
+	_, err = secureconn.WriteTo(data, Addr)
 	if err != nil {
 		t.Fatal(err)
 	}
 	buf := make([]byte, 1500)
-	n, err := secureconn.Read(buf)
+	n, _, err := secureconn.ReadFrom(buf)
 	if err != nil {
 		t.Fatal(err)
 	}

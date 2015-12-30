@@ -28,7 +28,7 @@ func TestSecureTCP(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		secureConn := NewTCPConn(conn, cipher.Copy())
+		secureConn := NewConn(conn, cipher.Copy())
 		buf := make([]byte, 1500)
 		n, err := secureConn.Read(buf)
 		if err != nil {
@@ -52,7 +52,7 @@ func TestSecureTCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	secureconn := NewTCPConn(conn.(*net.TCPConn), cipher.Copy())
+	secureconn := NewConn(conn.(*net.TCPConn), cipher.Copy())
 	_, err = secureconn.Write(data)
 	if err != nil {
 		t.Fatal(err)

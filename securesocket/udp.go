@@ -5,52 +5,36 @@ import (
 	"net"
 )
 
-type UDPConn struct {
-	*net.UDPConn
+type PacketConn struct {
+	net.PacketConn
 	*Cipher
 	readBuf  []byte
 	writeBuf []byte
 }
 
-func NewUDPConn(c *net.UDPConn, cipher *Cipher) *UDPConn {
-	return &UDPConn{
-		UDPConn: c,
-		Cipher:  cipher,
-		readBuf: leakyBuf.Get(),
+func NewPacketConn(c net.PacketConn, cipher *Cipher) *PacketConn {
+	return &PacketConn{
+		PacketConn: c,
+		Cipher:     cipher,
+		readBuf:    leakyBuf.Get(),
 		// for thread safety
 		//writeBuf: leakyBuf.Get(),
 	}
 }
 
-func (c *UDPConn) Close() error {
+func (c *PacketConn) Close() error {
 	leakyBuf.Put(c.readBuf)
 	//leakyBuf.Put(c.writeBuf)
-	return c.UDPConn.Close()
+	return c.PacketConn.Close()
 }
 
-func (c *UDPConn) Read(b []byte) (n int, err error) {
-	buf := c.readBuf
-	n, err = c.UDPConn.Read(buf[0:])
-	if err != nil {
-		return
-	}
-
-	iv := buf[:c.info.ivLen]
-	if err = c.initDecrypt(iv); err != nil {
-		return
-	}
-	c.decrypt(b[0:n - c.info.ivLen], buf[c.info.ivLen : n])
-	n = n - c.info.ivLen
-	return
-}
-
-func (c *UDPConn) ReadFrom(b []byte) (n int, src net.Addr, err error) {
-	n, src, err = c.UDPConn.ReadFrom(c.readBuf[0:])
+func (c *PacketConn) ReadFrom(b []byte) (n int, src net.Addr, err error) {
+	n, src, err = c.PacketConn.ReadFrom(c.readBuf[0:])
 	if err != nil {
 		return
 	}
 	if n < c.info.ivLen {
-		return 0, nil, errors.New("[udp]read error: cannot decrypt")
+		return 0, nil, errors.New("[Packet]read error: cannot decrypt")
 	}
 	iv := make([]byte, c.info.ivLen)
 	copy(iv, c.readBuf[:c.info.ivLen])
@@ -62,8 +46,7 @@ func (c *UDPConn) ReadFrom(b []byte) (n int, src net.Addr, err error) {
 	return
 }
 
-// Maybe some thread safe issue with Write and encryption
-func (c *UDPConn) Write(b []byte) (n int, err error) {
+func (c *PacketConn) WriteTo(b []byte, dst net.Addr) (n int, err error) {
 	dataStart := 0
 
 	var iv []byte
@@ -76,27 +59,8 @@ func (c *UDPConn) Write(b []byte) (n int, err error) {
 	cipherData := make([]byte, len(b)+len(iv))
 	copy(cipherData, iv)
 	dataStart = len(iv)
-	
-	c.encrypt(cipherData[dataStart:], b)
-	n, err = c.UDPConn.Write(cipherData)
-	return
-}
 
-func (c *UDPConn) WriteTo(b []byte, dst net.Addr) (n int, err error) {
-	dataStart := 0
-
-	var iv []byte
-	iv, err = c.initEncrypt()
-	if err != nil {
-		return
-	}
-	// Put initialization vector in buffer, do a single write to send both
-	// iv and data.
-	cipherData := make([]byte, len(b)+len(iv))
-	copy(cipherData, iv)
-	dataStart = len(iv)
-	
 	c.encrypt(cipherData[dataStart:], b)
-	n, err = c.UDPConn.WriteTo(cipherData, dst)
+	n, err = c.PacketConn.WriteTo(cipherData, dst)
 	return
 }

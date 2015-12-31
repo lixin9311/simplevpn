@@ -4,6 +4,7 @@ package tap
 import (
 	"errors"
 	"golang.org/x/sys/windows/registry"
+	"net"
 	"os"
 	"syscall"
 )
@@ -35,18 +36,18 @@ func tap_control_code(request, method uint32) uint32 {
 }
 
 // GetDeviceId finds out a TAP device from registry, it requires privileged right.
-func getdeviceid() (string, string, error) {
+func getdeviceid() (string, error) {
 	// TAP driver key location
 	regkey := `SYSTEM\CurrentControlSet\Control\Class\{4D36E972-E325-11CE-BFC1-08002BE10318}`
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, regkey, registry.ALL_ACCESS)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	defer k.Close()
 	// read all subkeys
 	keys, err := k.ReadSubKeyNames(-1)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	// find the one with ComponentId == "tap0901"
 	for _, v := range keys {
@@ -63,23 +64,18 @@ func getdeviceid() (string, string, error) {
 			if err != nil {
 				goto next
 			}
-			name, _, err := key.GetStringValue("DeviceInstanceID")
-			if err != nil {
-				log.Println("err read DeviceInstanceID:", err)
-				goto next
-			}
 			key.Close()
-			return val, name, nil
+			return val, nil
 		}
 	next:
 		key.Close()
 	}
-	return "", "", errors.New("Device not found")
+	return "", TapDeviceNotFound
 }
 
 // NewTAP find and open a TAP device.
 func newTAP() (ifce *Interface, err error) {
-	deviceid, name, err := getdeviceid()
+	deviceid, err := getdeviceid()
 	if err != nil {
 		return nil, err
 	}
@@ -123,5 +119,25 @@ func newTAP() (ifce *Interface, err error) {
 	ifce = &Interface{tap: true, file: fd}
 	copy(ifce.mac[:6], mac[:6])
 
+	// find the name of tap interface(to set the ip)
+	hwaddr_equal := func(a net.HardwareAddr, b []byte) bool {
+		for i := 0; i < 6; i++ {
+			if a[i] != b[i] {
+				return false
+			}
+		}
+		return true
+	}
+	ifces, err := net.Interfaces()
+	if err != nil {
+		return
+	}
+	for _, v := range ifces {
+		if hwaddr_equal(v.HardwareAddr[:6], mac[:6]) {
+			ifce.name = v.Name
+			return
+		}
+	}
+	err = IfceNameNotFound
 	return
 }

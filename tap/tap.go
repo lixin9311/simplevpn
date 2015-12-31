@@ -4,12 +4,15 @@ import (
 	"os"
 )
 
+// 48 bits Mac addr
+type HwAddr [6]byte
+
 // Interface is the abstract class of an network interface.
 type Interface struct {
 	tap  bool
 	file *os.File
 	name string
-	mac  []byte
+	mac  HwAddr
 }
 
 // Create a new tap device.
@@ -49,6 +52,6 @@ func (ifce *Interface) Close() error {
 }
 
 // Mac address of the interface.
-func (ifce *Interface) MacAddr() []byte {
+func (ifce *Interface) MacAddr() HwAddr {
 	return ifce.mac
 }

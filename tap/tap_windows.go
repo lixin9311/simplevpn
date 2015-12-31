@@ -88,6 +88,9 @@ func newTAP() (ifce *Interface, err error) {
 	file, err := syscall.CreateFile(pathp, syscall.GENERIC_READ|syscall.GENERIC_WRITE, uint32(syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE), nil, syscall.OPEN_EXISTING, syscall.FILE_ATTRIBUTE_SYSTEM, 0)
 	// if err hanppens, close the interface.
 	defer func() {
+		if err != nil {
+			syscall.Close(file)
+		}
 		if err := recover(); err != nil {
 			syscall.Close(file)
 		}

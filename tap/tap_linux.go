@@ -2,11 +2,16 @@
 package tap
 
 import (
+	"errors"
 	"net"
 	"os"
 	"strings"
 	"syscall"
 	"unsafe"
+)
+
+var (
+	IfceHwAddrNotFound = errors.New("Failed to find the hardware addr of interface.")
 )
 
 const (
@@ -46,19 +51,17 @@ func newTAP() (ifce *Interface, err error) {
 		return nil, err
 	}
 	ifce = &Interface{tap: true, file: file, name: name}
-	ifce.mac, err = ifce.macaddr()
-	return
-}
-
-func (ifce *Interface) macaddr() ([]byte, error) {
+	// find the mac address of interface.
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		return nil, nil
+		return
 	}
 	for _, v := range ifaces {
-		if v.Name == ifce.name {
-			return []byte(v.HardwareAddr), nil
+		if v.Name == name {
+			copy(ifce.mac[:6], v.HardwareAddr[:6])
+			return
 		}
 	}
-	return nil, nil
+	err = IfceHwAddrNotFound
+	return
 }

@@ -4,12 +4,13 @@ package tap
 import (
 	"errors"
 	"golang.org/x/sys/windows/registry"
-	"log"
 	"os"
 	"syscall"
 )
 
 var (
+	IfceNameNotFound  = errors.New("Failed to find the name of interface.")
+	TapDeviceNotFound = errors.New("Failed to find the tap device in registry.")
 	// Device Control Codes
 	tap_win_ioctl_get_mac             = tap_control_code(1, 0)
 	tap_win_ioctl_get_version         = tap_control_code(2, 0)
@@ -39,32 +40,27 @@ func getdeviceid() (string, string, error) {
 	regkey := `SYSTEM\CurrentControlSet\Control\Class\{4D36E972-E325-11CE-BFC1-08002BE10318}`
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, regkey, registry.ALL_ACCESS)
 	if err != nil {
-		log.Println("Cannot open the reg key:", err, "Please run this program with privileged right.")
 		return "", "", err
 	}
 	defer k.Close()
 	// read all subkeys
 	keys, err := k.ReadSubKeyNames(-1)
 	if err != nil {
-		log.Println("Cannot read subkeys:", err, "Please run this program with privileged right.")
 		return "", "", err
 	}
 	// find the one with ComponentId == "tap0901"
 	for _, v := range keys {
 		key, err := registry.OpenKey(registry.LOCAL_MACHINE, regkey+"\\"+v, registry.ALL_ACCESS)
 		if err != nil {
-			log.Println("Failed to open subkey:", err)
 			continue
 		}
 		val, _, err := key.GetStringValue("ComponentId")
 		if err != nil {
-			log.Println("Failed to get subkey value:", err)
 			goto next
 		}
 		if val == "tap0901" {
 			val, _, err = key.GetStringValue("NetCfgInstanceId")
 			if err != nil {
-				log.Println("err read NetCfgInstanceId:", err)
 				goto next
 			}
 			name, _, err := key.GetStringValue("DeviceInstanceID")
@@ -85,37 +81,37 @@ func getdeviceid() (string, string, error) {
 func newTAP() (ifce *Interface, err error) {
 	deviceid, name, err := getdeviceid()
 	if err != nil {
-		return nil, errors.New("Failed to get DeviceId:" + err.Error())
+		return nil, err
 	}
 	path := "\\\\.\\Global\\" + deviceid + ".tap"
 	pathp, err := syscall.UTF16PtrFromString(path)
 	if err != nil {
-		return nil, errors.New("Invalid Device path:" + err.Error())
+		return nil, err
 	}
 	// type Handle uintptr
 	file, err := syscall.CreateFile(pathp, syscall.GENERIC_READ|syscall.GENERIC_WRITE, uint32(syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE), nil, syscall.OPEN_EXISTING, syscall.FILE_ATTRIBUTE_SYSTEM, 0)
+	// if err hanppens, close the interface.
 	defer func() {
 		if err := recover(); err != nil {
 			syscall.Close(file)
 		}
 	}()
 	if err != nil {
-		return nil, errors.New("Failed to open device:" + err.Error())
+		return nil, err
 	}
 	var bytesReturned uint32
-	fd := os.NewFile(uintptr(file), path)
+	// find the mac address of tap device.
 	mac := make([]byte, 6)
 	err = syscall.DeviceIoControl(file, tap_win_ioctl_get_mac, &mac[0], uint32(len(mac)), &mac[0], uint32(len(mac)), &bytesReturned, nil)
 	if err != nil {
-		log.Println("Failed to get mac address of the interface: ", err)
-		fd.Close()
 		return nil, err
 	}
+	// bring up device.
 	rdbbuf := make([]byte, syscall.MAXIMUM_REPARSE_DATA_BUFFER_SIZE)
 	code := []byte{0x01, 0x00, 0x00, 0x00}
 	err = syscall.DeviceIoControl(file, tap_ioctl_set_media_status, &code[0], uint32(4), &rdbbuf[0], uint32(len(rdbbuf)), &bytesReturned, nil)
 	if err != nil {
-		return nil, errors.New("Failed to bring up device:" + err.Error())
+		return nil, err
 	}
 	//TUN
 	//code2 := []byte{0x0a, 0x03, 0x00, 0x01, 0x0a, 0x03, 0x00, 0x00, 0xff, 0xff, 0xff, 0x00}
@@ -123,6 +119,9 @@ func newTAP() (ifce *Interface, err error) {
 	//if err != nil {
 	//	log.Fatalln("code2 err:", err)
 	//}
-	ifce = &Interface{tap: true, file: fd, name: name, mac: mac}
+	fd := os.NewFile(uintptr(file), path)
+	ifce = &Interface{tap: true, file: fd}
+	copy(ifce.mac[:6], mac[:6])
+
 	return
 }

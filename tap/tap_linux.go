@@ -3,8 +3,10 @@ package tap
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -63,5 +65,13 @@ func newTAP() (ifce *Interface, err error) {
 		}
 	}
 	err = IfceHwAddrNotFound
+	return
+}
+
+func (ifce *Interface) setIP(ip_mask *net.IPNet) (err error) {
+	sargs := fmt.Sprintf("addr add %s dev %s", ip_mask, ifce.name)
+	args := strings.Split(sargs, " ")
+	cmd := exec.Command("ip", args...)
+	err = cmd.Run()
 	return
 }

@@ -3,9 +3,12 @@ package tap
 
 import (
 	"errors"
+	"fmt"
 	"golang.org/x/sys/windows/registry"
 	"net"
 	"os"
+	"os/exec"
+	"strings"
 	"syscall"
 )
 
@@ -142,5 +145,16 @@ func newTAP() (ifce *Interface, err error) {
 		}
 	}
 	err = IfceNameNotFound
+	return
+}
+
+func (ifce *Interface) setIP(ip_mask *net.IPNet) (err error) {
+	sargs := fmt.Sprintf("netsh interface ip set address name=REPLACE_ME source=static addr=REPLACE_ME mask=REPLACE_ME gateway=none")
+	args := strings.Split(sargs, " ")
+	args[5] = fmt.Sprintf("name=\"%s\"", ifce.Name)
+	args[7] = fmt.Sprintf("addr=%d.%d.%d.%d", ip_mask.IP[0], ip_mask.IP[1], ip_mask.IP[2], ip_mask.IP[3])
+	args[8] = fmt.Sprintf("mask=%d.%d.%d.%d", ip_mask.Mask[0], ip_mask.Mask[1], ip_mask.Mask[2], ip_mask.Mask[3])
+	cmd := exec.Command("netsh", args...)
+	err = cmd.Run()
 	return
 }

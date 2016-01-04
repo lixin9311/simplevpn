@@ -1,0 +1,7 @@
+[user]
+role = "client"
+password = "password"
+method = "aes-256-cfb"
+[server]
+ip = "10.0.0.1"
+port = 1080

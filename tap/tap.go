@@ -1,6 +1,7 @@
 package tap
 
 import (
+	"net"
 	"os"
 )
 
@@ -54,4 +55,9 @@ func (ifce *Interface) Close() error {
 // Mac address of the interface.
 func (ifce *Interface) MacAddr() HwAddr {
 	return ifce.mac
+}
+
+// Set ip address of the interface.
+func (ifce *Interface) SetIP(ip_mask *net.IPNet) error {
+	return ifce.setIP(ip_mask)
 }

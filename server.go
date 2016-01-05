@@ -11,6 +11,10 @@ import (
 func runServer(conf *Config) error {
 	hub.Init()
 	ifce, err := tap.NewTAP()
+	if err != nil {
+		log.Println("Failed to create tap interface:", err)
+		return err
+	}
 	ip, ip_mask, err := net.ParseCIDR("192.168.1.1/24")
 	if err != nil {
 		return err

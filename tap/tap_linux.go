@@ -69,7 +69,7 @@ func newTAP() (ifce *Interface, err error) {
 }
 
 func (ifce *Interface) up() (err error) {
-	sargs := fmt.Sprintf("link dev %s up", ifce.name)
+	sargs := fmt.Sprintf("link set dev %s up mtu 1400", ifce.name)
 	args := strings.Split(sargs, " ")
 	cmd := exec.Command("ip", args...)
 	err = cmd.Run()

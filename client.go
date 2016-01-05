@@ -99,6 +99,16 @@ func runClient(conf *Config) error {
 	if err != nil {
 		log.Println("Failed to set default route, please manually fix that", err)
 	}
+	defer func() {
+		ip, ip_mask, _ = net.ParseCIDR("0.0.0.0/1")
+		ip_mask.IP = ip
+		ip = net.ParseIP(auth.GateWay)
+		ifce.DelRoute(ip, ip_mask)
+		ip, ip_mask, _ = net.ParseCIDR("128.0.0.0/1")
+		ip_mask.IP = ip
+		ip = net.ParseIP(auth.GateWay)
+		ifce.DelRoute(ip, ip_mask)
+	}()
 	go PipeThenClose(c, ifce)
 	PipeThenClose(ifce, c)
 	return nil

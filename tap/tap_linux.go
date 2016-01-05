@@ -87,3 +87,15 @@ func addRoute(ip net.IP, ip_mask *net.IPNet, ifce string) (err error) {
 func (ifce *Interface) addRoute(ip net.IP, ip_mask *net.IPNet) (err error) {
 	return addRoute(ip, ip_mask, ifce.name)
 }
+
+func delRoute(ip net.IP, ip_mask *net.IPNet, ifce string) (err error) {
+	sargs := fmt.Sprintf("route del %s via %s dev %s", ip_mask, ip, ifce)
+	args := strings.Split(sargs, " ")
+	cmd := exec.Command("ip", args...)
+	err = cmd.Run()
+	return
+}
+
+func (ifce *Interface) delRoute(ip net.IP, ip_mask *net.IPNet) (err error) {
+	return delRoute(ip, ip_mask, ifce.name)
+}

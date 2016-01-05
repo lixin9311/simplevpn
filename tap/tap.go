@@ -69,3 +69,11 @@ func AddRoute(ip net.IP, ip_mask *net.IPNet, ifce string) error {
 func (ifce *Interface) AddRoute(ip net.IP, ip_mask *net.IPNet) error {
 	return ifce.addRoute(ip, ip_mask)
 }
+
+func DelRoute(ip net.IP, ip_mask *net.IPNet, ifce string) error {
+	return delRoute(ip, ip_mask, ifce)
+}
+
+func (ifce *Interface) DelRoute(ip net.IP, ip_mask *net.IPNet) error {
+	return ifce.delRoute(ip, ip_mask)
+}

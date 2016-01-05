@@ -30,6 +30,11 @@ func readConf(path string) (*Config, error) {
 	return config, nil
 }
 func main() {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 	flag.Parse()
 	conf, err := readConf(*file)
 	if err != nil {
@@ -39,18 +44,18 @@ func main() {
 	if conf.User.Role == "client" {
 		err = runClient(conf)
 		if err != nil {
-			fmt.Println("Server instance exited with error:", err)
-			panic(err)
-		} else {
-			fmt.Println("Server instance exited without error.")
-		}
-	} else if conf.User.Role == "server" {
-		err = runServer(conf)
-		if err != nil {
 			fmt.Println("Client instance exited with error:", err)
 			panic(err)
 		} else {
 			fmt.Println("Client instance exited without error.")
+		}
+	} else if conf.User.Role == "server" {
+		err = runServer(conf)
+		if err != nil {
+			fmt.Println("Server instance exited with error:", err)
+			panic(err)
+		} else {
+			fmt.Println("Server instance exited without error.")
 		}
 	} else {
 		fmt.Println("Unexpected instance role:", conf.User.Role)

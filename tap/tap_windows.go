@@ -108,13 +108,6 @@ func newTAP() (ifce *Interface, err error) {
 	if err != nil {
 		return nil, err
 	}
-	// bring up device.
-	rdbbuf := make([]byte, syscall.MAXIMUM_REPARSE_DATA_BUFFER_SIZE)
-	code := []byte{0x01, 0x00, 0x00, 0x00}
-	err = syscall.DeviceIoControl(file, tap_ioctl_set_media_status, &code[0], uint32(4), &rdbbuf[0], uint32(len(rdbbuf)), &bytesReturned, nil)
-	if err != nil {
-		return nil, err
-	}
 	//TUN
 	//code2 := []byte{0x0a, 0x03, 0x00, 0x01, 0x0a, 0x03, 0x00, 0x00, 0xff, 0xff, 0xff, 0x00}
 	//err = syscall.DeviceIoControl(file, tap_ioctl_config_tun, &code2[0], uint32(12), &rdbbuf[0], uint32(len(rdbbuf)), &bytesReturned, nil)
@@ -141,11 +134,30 @@ func newTAP() (ifce *Interface, err error) {
 	for _, v := range ifces {
 		if hwaddr_equal(v.HardwareAddr[:6], mac[:6]) {
 			ifce.name = v.Name
+			if err := ifce.ignoreDefaultRoutes(); err != nil {
+				return nil, err
+			}
+			// bring up device.
+			rdbbuf := make([]byte, syscall.MAXIMUM_REPARSE_DATA_BUFFER_SIZE)
+			code := []byte{0x01, 0x00, 0x00, 0x00}
+			err = syscall.DeviceIoControl(file, tap_ioctl_set_media_status, &code[0], uint32(4), &rdbbuf[0], uint32(len(rdbbuf)), &bytesReturned, nil)
+			if err != nil {
+				return nil, err
+			}
 			return
 		}
 	}
 	err = IfceNameNotFound
 	return
+
+}
+
+func (ifce *Interface) ignoreDefaultRoutes() error {
+	sargs = "interface ip set interface interface=REPLACE_ME ignoredefaultroutes=enabled"
+	args := strings.Split(sargs, " ")
+	args[4] = fmt.Sprintf("interface=\"%s\"", ifce.name)
+	cmd := exec.Command("netsh", args...)
+	return cmd.Run()
 }
 
 func (ifce *Interface) setIP(ip_mask *net.IPNet) (err error) {

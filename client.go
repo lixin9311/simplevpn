@@ -10,14 +10,14 @@ import (
 )
 
 func runClient(conf *Config) error {
-	cipher, err := ss.NewCipher(conf.User.Method, conf.User.Password)
-	if err != nil {
-		return err
-	}
 	test := net.ParseIP(conf.Server.Ip)
 	v6 := false
 	if test.To4() == nil {
 		v6 = true
+	}
+	cipher, err := ss.NewCipher(conf.User.Method, conf.User.Password)
+	if err != nil {
+		return err
 	}
 	ifce, err := tap.NewTAP()
 	if err != nil {
@@ -80,7 +80,7 @@ func runClient(conf *Config) error {
 	if auth.Type != Auth_Welcome {
 		return fmt.Errorf("[Client]: Unexpected response type: %s.", Auth_MessageType_name[int32(auth.Type)])
 	}
-	ip, ip_mask, err = net.ParseCIDR(auth.IP)
+	ip, ip_mask, err := net.ParseCIDR(auth.IP)
 	if err != nil {
 		log.Println("[Client]: Failed to parse CIDR from response:", err)
 		return err
@@ -121,14 +121,14 @@ func runClient(conf *Config) error {
 		ip = net.ParseIP(auth.GateWay)
 		ifce.DelRoute(ip, ip_mask)
 	}()
-	go PipeThenClose(c, ifce)
-	PipeThenClose(ifce, c)
+	go PipeThenClose(ifce, c)
+	PipeThenClose(c, ifce)
 	return nil
 }
 
 func PipeThenClose(src, dst io.ReadWriteCloser) {
 	defer dst.Close()
-	buf := make([]byte, 1522)
+	buf := make([]byte, MaxPacketSize)
 	for {
 		n, err := src.Read(buf)
 		// read may return EOF with n > 0
@@ -149,6 +149,7 @@ func PipeThenClose(src, dst io.ReadWriteCloser) {
 					Debug.Println("read:", err)
 				}
 			*/
+			log.Println("read:", err)
 			break
 		}
 	}

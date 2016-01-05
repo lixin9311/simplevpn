@@ -3,7 +3,7 @@ package tap
 
 import (
 	"fmt"
-	//"log"
+	"log"
 	"net"
 	"sync"
 	"syscall"
@@ -19,13 +19,16 @@ type route struct {
 func find_gateway(ip_mask *net.IPNet) (ip net.IP, dev string, err error) {
 	buf, err := syscall.NetlinkRIB(syscall.RTM_GETROUTE, syscall.AF_INET)
 	if err != nil {
+		log.Println("Failed to open netlink:", err)
 		return
 	}
 	msgs, err := syscall.ParseNetlinkMessage(buf)
 	if err != nil {
+		log.Println("Failed to parse nl msg:", err)
 		return
 	}
 	var def route
+	set := false
 	var once sync.Once
 loop:
 	for _, m := range msgs {
@@ -39,6 +42,7 @@ loop:
 			attrs, err := syscall.ParseNetlinkRouteAttr(&m)
 			if err != nil {
 				// err is shadowed
+				log.Println("Failed to parse nl rtattr:", err)
 				return ip, dev, err
 			}
 			// parse a route entry
@@ -48,6 +52,7 @@ loop:
 					addr := a.Value
 					_, r.dst, err = net.ParseCIDR(fmt.Sprintf("%d.%d.%d.%d/%d", addr[0], addr[1], addr[2], addr[3], rtmsg.Dst_len))
 					if err != nil {
+						log.Println("Failed to parse ip addr:", err)
 						return ip, dev, err
 					}
 				case syscall.RTA_GATEWAY:
@@ -60,17 +65,29 @@ loop:
 			if r.dst == nil {
 				once.Do(func() {
 					def = r
+					set = true
 				})
-			}
-			if r.dst.Contains(ip_mask.IP) {
-				ifce, err := net.InterfaceByIndex(r.if_index)
-				if err != nil {
-					return ip, dev, err
+			} else {
+				if r.dst.Contains(ip_mask.IP) {
+					ifce, err := net.InterfaceByIndex(r.if_index)
+					if err != nil {
+						log.Println("Failed to get interface by index:", err)
+						return ip, dev, err
+					}
+					return r.gateway, ifce.Name, nil
 				}
-				return r.gateway, ifce.Name, nil
+
 			}
 		}
 	}
-	err = fmt.Errorf("Route not Found.")
+	if set {
+		ifce, err := net.InterfaceByIndex(def.if_index)
+		if err != nil {
+			log.Println("Failed to get interface by index:", err)
+			return ip, dev, err
+		}
+		return def.gateway, ifce.Name, nil
+	}
+	err = fmt.Errorf("Route not found.")
 	return
 }

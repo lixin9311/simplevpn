@@ -16,6 +16,7 @@ func runClient(conf *Config) error {
 	}
 	ifce, err := tap.NewTAP()
 	if err != nil {
+		log.Println("Failed to create TAP device:", err)
 		return err
 	}
 	defer ifce.Close()
@@ -63,6 +64,7 @@ func runClient(conf *Config) error {
 	ip_mask.IP = ip
 	err = ifce.SetIP(ip_mask)
 	if err != nil {
+		log.Println("Failed to set IP address:", err)
 		return err
 	}
 	go PipeThenClose(c, ifce)

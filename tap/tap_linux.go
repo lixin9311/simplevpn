@@ -61,10 +61,18 @@ func newTAP() (ifce *Interface, err error) {
 	for _, v := range ifaces {
 		if v.Name == name {
 			copy(ifce.mac[:6], v.HardwareAddr[:6])
-			return
+			return ifce.up()
 		}
 	}
 	err = IfceHwAddrNotFound
+	return
+}
+
+func (ifce *Interface) up() (err error) {
+	sargs := fmt.Sprintf("link dev %s up", ifce.name)
+	args := strings.Split(sargs, " ")
+	cmd := exec.Command("ip", args...)
+	err = cmd.Run()
 	return
 }
 

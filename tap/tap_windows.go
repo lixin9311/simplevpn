@@ -153,7 +153,7 @@ func newTAP() (ifce *Interface, err error) {
 }
 
 func (ifce *Interface) ignoreDefaultRoutes() error {
-	sargs = "interface ip set interface interface=REPLACE_ME ignoredefaultroutes=enabled"
+	sargs := "interface ip set interface interface=REPLACE_ME ignoredefaultroutes=enabled"
 	args := strings.Split(sargs, " ")
 	args[4] = fmt.Sprintf("interface=\"%s\"", ifce.name)
 	cmd := exec.Command("netsh", args...)

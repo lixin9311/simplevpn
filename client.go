@@ -79,7 +79,7 @@ func runClient(conf *Config) error {
 		log.Println("Failed to set IP address:", err)
 		return err
 	}
-	ip, ip_mask, err = net.ParseCIDR("0.0.0.0/0")
+	ip, ip_mask, err = net.ParseCIDR("0.0.0.0/1")
 	if err != nil {
 		log.Println("Failed to parse address:", err)
 	}
@@ -87,8 +87,17 @@ func runClient(conf *Config) error {
 	ip = net.ParseIP(auth.GateWay)
 	err = ifce.AddRoute(ip, ip_mask)
 	if err != nil {
-		log.Println("Failed to set default route:", err)
-		return err
+		log.Println("Failed to set default route, please manually fix that:", err)
+	}
+	ip, ip_mask, err = net.ParseCIDR("128.0.0.0/1")
+	if err != nil {
+		log.Println("Failed to parse address:", err)
+	}
+	ip_mask.IP = ip
+	ip = net.ParseIP(auth.GateWay)
+	err = ifce.AddRoute(ip, ip_mask)
+	if err != nil {
+		log.Println("Failed to set default route, please manually fix that", err)
 	}
 	go PipeThenClose(c, ifce)
 	PipeThenClose(ifce, c)

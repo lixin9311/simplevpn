@@ -61,7 +61,7 @@ func newTAP() (ifce *Interface, err error) {
 	for _, v := range ifaces {
 		if v.Name == name {
 			copy(ifce.mac[:6], v.HardwareAddr[:6])
-			return ifce.up()
+			return ifce, ifce.up()
 		}
 	}
 	err = IfceHwAddrNotFound

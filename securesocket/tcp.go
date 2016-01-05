@@ -102,12 +102,11 @@ func (c *PacketStreamConn) Write(b []byte) (n int, err error) {
 func (c *PacketStreamConn) Read(b []byte) (n int, err error) {
 	var size uint16
 	var tmp [2]byte
-	n, err = io.ReadAtLeast(c.Conn, tmp[:], 2)
+	n, err = io.ReadFull(c.Conn, tmp[:2])
 	if err != nil {
 		return 0, err
 	}
 	size = binary.BigEndian.Uint16(tmp[:])
-	// ReadAtLeast will return err when len(b) < size
-	n, err = io.ReadAtLeast(c.Conn, b, int(size))
+	n, err = io.ReadFull(c.Conn, b[:int(size)])
 	return
 }

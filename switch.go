@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/lixin9311/simplevpn/tap"
 	"io"
+	"log"
 	"sync"
 )
 
@@ -41,12 +42,14 @@ func (h *Hub) Init() {
 func (h *Hub) Connect(client *Client) {
 	h.Lock()
 	defer h.Unlock()
+	log.Printf("Client with MacAddr %s connected.\n", client.MacAddr)
 	h.Clients[client.MacAddr] = client
 }
 
 func (h *Hub) Disonnect(client *Client) {
 	h.Lock()
 	defer h.Unlock()
+	log.Printf("Client with MacAddr %s disconnected.\n", client.MacAddr)
 	delete(h.Clients, client.MacAddr)
 }
 

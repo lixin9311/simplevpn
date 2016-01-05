@@ -1,12 +1,17 @@
 package tap
 
 import (
+	"fmt"
 	"net"
 	"os"
 )
 
 // 48 bits Mac addr
 type HwAddr [6]byte
+
+func (h HwAddr) String() string {
+	return fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x", h[0], h[1], h[2], h[3], h[4], h[5])
+}
 
 // Interface is the abstract class of an network interface.
 type Interface struct {

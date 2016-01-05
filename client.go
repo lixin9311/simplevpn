@@ -20,6 +20,18 @@ func runClient(conf *Config) error {
 		return err
 	}
 	defer ifce.Close()
+	ip, ip_mask, err := net.ParseCIDR(conf.Server.Ip + "/32")
+	if err != nil {
+		log.Println("Failed to parse ip:", err)
+		return err
+	}
+	ip_mask.IP = ip
+	err = tap.Bypass(ip_mask)
+	if err != nil {
+		log.Println("[Client]: Failed to bypass server address from route:", err)
+		return err
+	}
+	defer tap.Unbypass()
 	// reg with server
 	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", conf.Server.Ip, conf.Server.Port))
 	if err != nil {
@@ -56,7 +68,7 @@ func runClient(conf *Config) error {
 	if auth.Type != Auth_Welcome {
 		return fmt.Errorf("[Client]: Unexpected response type: %s.", Auth_MessageType_name[int32(auth.Type)])
 	}
-	ip, ip_mask, err := net.ParseCIDR(auth.IP)
+	ip, ip_mask, err = net.ParseCIDR(auth.IP)
 	if err != nil {
 		log.Println("[Client]: Failed to parse CIDR from response:", err)
 		return err

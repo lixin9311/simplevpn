@@ -35,8 +35,18 @@ func serve(conf *Config, localHWAddr tap.HwAddr) error {
 	cipher, err := ss.NewCipher(conf.User.Method, conf.User.Password)
 	if err != nil {
 		return err
+	test := net.ParseIP(conf.Server.Ip)
+	v6 := false
+	if test.To4() == nil {
+		v6 = true
 	}
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", conf.Server.Ip, conf.Server.Port))
+	var addr string
+	if v6 {
+		addr = fmt.Sprintf("[%s]:%d", conf.Server.Ip, conf.Server.Port)
+	} else {
+		addr = fmt.Sprintf("%s:%d", conf.Server.Ip, conf.Server.Port)
+	}
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}

@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	MaxPacketSize = 1522
+	MaxPacketSize = 1600
 )
 
 var (
@@ -83,9 +83,10 @@ func (c *Client) Init() {
 	go func() {
 		defer hub.Disonnect(c)
 		for {
-			buf := make([]byte, 1522)
+			buf := make([]byte, MaxPacketSize)
 			n, err := c.Conn.Read(buf)
 			if err != nil {
+				log.Printf("Err when read from client[%s]:%v\n", c.MacAddr, err)
 				break
 			}
 			ether_buffer <- buf[:n]

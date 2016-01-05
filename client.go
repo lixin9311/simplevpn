@@ -14,26 +14,38 @@ func runClient(conf *Config) error {
 	if err != nil {
 		return err
 	}
+	test := net.ParseIP(conf.Server.Ip)
+	v6 := false
+	if test.To4() == nil {
+		v6 = true
+	}
 	ifce, err := tap.NewTAP()
 	if err != nil {
 		log.Println("Failed to create TAP device:", err)
 		return err
 	}
 	defer ifce.Close()
-	ip, ip_mask, err := net.ParseCIDR(conf.Server.Ip + "/32")
-	if err != nil {
-		log.Println("Failed to parse ip:", err)
-		return err
+	if !v6 {
+		ip, ip_mask, err := net.ParseCIDR(conf.Server.Ip + "/32")
+		if err != nil {
+			log.Println("Failed to parse ip:", err)
+			return err
+		}
+		ip_mask.IP = ip
+		err = tap.Bypass(ip_mask)
+		if err != nil {
+			log.Println("[Client]: Failed to bypass server address from route, please manually fix that:", err)
+		}
+		defer tap.Unbypass()
 	}
-	ip_mask.IP = ip
-	err = tap.Bypass(ip_mask)
-	if err != nil {
-		log.Println("[Client]: Failed to bypass server address from route:", err)
-		return err
-	}
-	defer tap.Unbypass()
 	// reg with server
-	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", conf.Server.Ip, conf.Server.Port))
+	var dst string
+	if v6 {
+		dst = fmt.Sprintf("[%s]:%d", conf.Server.Ip, conf.Server.Port)
+	} else {
+		dst = fmt.Sprintf("%s:%d", conf.Server.Ip, conf.Server.Port)
+	}
+	conn, err := net.Dial("tcp", dst)
 	if err != nil {
 		return err
 	}

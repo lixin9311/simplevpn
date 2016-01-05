@@ -35,6 +35,7 @@ func serve(conf *Config, localHWAddr tap.HwAddr) error {
 	cipher, err := ss.NewCipher(conf.User.Method, conf.User.Password)
 	if err != nil {
 		return err
+	}
 	test := net.ParseIP(conf.Server.Ip)
 	v6 := false
 	if test.To4() == nil {

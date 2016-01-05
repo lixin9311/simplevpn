@@ -2,29 +2,75 @@
 package tap
 
 import (
-	"bytes"
 	"fmt"
+	//"log"
 	"net"
-	"os/exec"
-	"strings"
+	"sync"
+	"syscall"
+	"unsafe"
 )
 
+type route struct {
+	gateway  net.IP
+	dst      *net.IPNet
+	if_index int
+}
+
 func find_gateway(ip_mask *net.IPNet) (ip net.IP, dev string, err error) {
-	sargs := fmt.Sprintf("route get %s", ip_mask)
-	args := strings.Split(sargs, " ")
-	cmd := exec.Command("ip", args...)
-	out, err := cmd.Output()
+	buf, err := syscall.NetlinkRIB(syscall.RTM_GETROUTE, syscall.AF_INET)
 	if err != nil {
 		return
 	}
-	buf := bytes.NewBuffer(out)
-	firstline, _ := buf.ReadString('\n')
-	fields := strings.Fields(firstline)
-	if len(fields) < 5 {
-		err = fmt.Errorf("Invalid result:%s", firstline)
+	msgs, err := syscall.ParseNetlinkMessage(buf)
+	if err != nil {
 		return
 	}
-	ip = net.ParseIP(fields[2])
-	dev = fields[4]
+	var def route
+	var once sync.Once
+loop:
+	for _, m := range msgs {
+		switch m.Header.Type {
+		case syscall.NLMSG_DONE:
+			break loop
+		case syscall.RTM_NEWROUTE:
+			// a route enrty
+			var r route
+			rtmsg := (*syscall.RtMsg)(unsafe.Pointer(&m.Data[0]))
+			attrs, err := syscall.ParseNetlinkRouteAttr(&m)
+			if err != nil {
+				// err is shadowed
+				return ip, dev, err
+			}
+			// parse a route entry
+			for _, a := range attrs {
+				switch a.Attr.Type {
+				case syscall.RTA_DST:
+					addr := a.Value
+					_, r.dst, err = net.ParseCIDR(fmt.Sprintf("%d.%d.%d.%d/%d", addr[0], addr[1], addr[2], addr[3], rtmsg.Dst_len))
+					if err != nil {
+						return ip, dev, err
+					}
+				case syscall.RTA_GATEWAY:
+					addr := a.Value
+					r.gateway = net.IPv4(addr[0], addr[1], addr[2], addr[3])
+				case syscall.RTA_OIF:
+					r.if_index = int(a.Value[0])
+				}
+			}
+			if r.dst == nil {
+				once.Do(func() {
+					def = r
+				})
+			}
+			if r.dst.Contains(ip_mask.IP) {
+				ifce, err := net.InterfaceByIndex(r.if_index)
+				if err != nil {
+					return ip, dev, err
+				}
+				return r.gateway, ifce.Name, nil
+			}
+		}
+	}
+	err = fmt.Errorf("Route not Found.")
 	return
 }

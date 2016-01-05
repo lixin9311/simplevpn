@@ -75,3 +75,15 @@ func (ifce *Interface) setIP(ip_mask *net.IPNet) (err error) {
 	err = cmd.Run()
 	return
 }
+
+func addRoute(ip net.IP, ip_mask *net.IPNet, ifce string) (err error) {
+	sargs := fmt.Sprintf("route add %s via %s dev %s", ip_mask, ip, ifce)
+	args := strings.Split(sargs, " ")
+	cmd := exec.Command("ip", args...)
+	err = cmd.Run()
+	return
+}
+
+func (ifce *Interface) addRoute(ip net.IP, ip_mask *net.IPNet) (err error) {
+	return addRoute(ip, ip_mask, ifce.name)
+}

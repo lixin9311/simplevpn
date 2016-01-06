@@ -14,7 +14,7 @@ const (
 )
 
 var (
-	hub           = &Hub{Clients: map[tap.HwAddr]*Client{}, input: ether_buffer}
+	hub           = &Hub{Clients: map[tap.HwAddr]*Client{}, input: ether_buffer, Packet_clients: map[net.Addr]*Client{}}
 	BroadcastAddr = tap.HwAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	ether_buffer  = make(chan []byte, 4000)
 )

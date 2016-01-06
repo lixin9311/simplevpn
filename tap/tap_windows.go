@@ -131,19 +131,17 @@ func newTAP() (ifce *Interface, err error) {
 	if err != nil {
 		return
 	}
+	// bring up device.
+	rdbbuf := make([]byte, syscall.MAXIMUM_REPARSE_DATA_BUFFER_SIZE)
+	code := []byte{0x01, 0x00, 0x00, 0x00}
+	err = syscall.DeviceIoControl(file, tap_ioctl_set_media_status, &code[0], uint32(4), &rdbbuf[0], uint32(len(rdbbuf)), &bytesReturned, nil)
+	if err != nil {
+		return nil, err
+	}
 	for _, v := range ifces {
 		if hwaddr_equal(v.HardwareAddr[:6], mac[:6]) {
 			ifce.name = v.Name
-			if err := ifce.ignoreDefaultRoutes(); err != nil {
-				return nil, err
-			}
-			// bring up device.
-			rdbbuf := make([]byte, syscall.MAXIMUM_REPARSE_DATA_BUFFER_SIZE)
-			code := []byte{0x01, 0x00, 0x00, 0x00}
-			err = syscall.DeviceIoControl(file, tap_ioctl_set_media_status, &code[0], uint32(4), &rdbbuf[0], uint32(len(rdbbuf)), &bytesReturned, nil)
-			if err != nil {
-				return nil, err
-			}
+			//ifce.ignoreDefaultRoutes()
 			return
 		}
 	}

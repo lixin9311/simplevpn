@@ -47,20 +47,9 @@ func serve(conf *Config, localHWAddr tap.HwAddr) error {
 	} else {
 		addr = fmt.Sprintf("%s:%d", conf.Server.Ip, conf.Server.Port)
 	}
-	var listener net.Listener
-	if *udp {
-		packetconn, err := net.ListenPacket("udp", addr)
-		if err != nil {
-			log.Println("Failed to create udp ln:", err)
-			return err
-		}
-		listener = ss.NewPacketConn_Listener(packetconn)
-
-	} else {
-		listener, err = net.Listen("tcp", addr)
-		if err != nil {
-			return err
-		}
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
 	}
 	defer listener.Close()
 	log.Printf("Server inited, listen on : %s:%d.\n", conf.Server.Ip, conf.Server.Port)
@@ -72,21 +61,11 @@ func serve(conf *Config, localHWAddr tap.HwAddr) error {
 				return err
 			}
 			var c net.Conn
-			if *udp {
-				if *enc {
-					c = conn
-				} else {
-					c = ss.NewConn(conn, cipher.Copy())
-				}
-
+			if *enc {
+				c = ss.NewPacketStreamConn(conn)
 			} else {
-				if *enc {
-					c = ss.NewPacketStreamConn(conn)
-				} else {
-					secureconn := ss.NewConn(conn, cipher.Copy())
-					c = ss.NewPacketStreamConn(secureconn)
-				}
-
+				secureconn := ss.NewConn(conn, cipher.Copy())
+				c = ss.NewPacketStreamConn(secureconn)
 			}
 			// conn handle
 			go func(conn net.Conn) {

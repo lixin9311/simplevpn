@@ -49,16 +49,41 @@ func runClient(conf *Config) error {
 	} else {
 		dst = fmt.Sprintf("%s:%d", conf.Server.Ip, conf.Server.Port)
 	}
-	conn, err := net.Dial("tcp", dst)
-	if err != nil {
-		return err
+	var conn net.Conn
+	if *udp {
+		udpaddr, err := net.ResolveUDPAddr("udp", dst)
+		if err != nil {
+			log.Println("Failed to resolve udp addr:", err)
+			return err
+		}
+		conn, err = net.DialUDP("tcp", nil, udpaddr)
+		if err != nil {
+			return err
+		}
+
+	} else {
+		conn, err = net.Dial("tcp", dst)
+		if err != nil {
+			return err
+		}
+
 	}
 	var c net.Conn
-	if *enc {
-		c = ss.NewPacketStreamConn(conn)
+	if *udp {
+		if *enc {
+			c = conn
+		} else {
+			c = ss.NewConn(conn, cipher.Copy())
+		}
+
 	} else {
-		secureconn := ss.NewConn(conn, cipher.Copy())
-		c = ss.NewPacketStreamConn(secureconn)
+		if *enc {
+			c = ss.NewPacketStreamConn(conn)
+		} else {
+			secureconn := ss.NewConn(conn, cipher.Copy())
+			c = ss.NewPacketStreamConn(secureconn)
+		}
+
 	}
 	defer c.Close()
 	auth := new(Auth)
@@ -144,6 +169,7 @@ func PipeThenClose(src, dst io.ReadWriteCloser) {
 		// read may return EOF with n > 0
 		// should always process n > 0 bytes before handling error
 		if n > 0 {
+			//go dst.Write(buf[:n])
 			// Note: avoid overwrite err returned by Read.
 			if _, err := dst.Write(buf[0:n]); err != nil {
 				log.Println("write:", err)

@@ -32,18 +32,16 @@ func (c *Conn) Close() error {
 }
 
 func (c *Conn) Read(b []byte) (n int, err error) {
+	c.declock.Lock()
+	defer c.declock.Unlock()
 	if c.dec == nil {
-		c.declock.Lock()
 		iv := make([]byte, c.info.ivLen)
 		if _, err = io.ReadFull(c.Conn, iv); err != nil {
-			c.declock.Unlock()
 			return
 		}
 		if err = c.initDecrypt(iv); err != nil {
-			c.declock.Unlock()
 			return
 		}
-		c.declock.Unlock()
 	}
 
 	cipherData := c.readBuf
@@ -55,23 +53,20 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 
 	n, err = c.Conn.Read(cipherData)
 	if n > 0 {
-		c.declock.Lock()
 		c.decrypt(b[0:n], cipherData[0:n])
-		c.declock.Unlock()
 	}
 	return
 }
 
 func (c *Conn) Write(b []byte) (n int, err error) {
+	c.enclock.Lock()
+	defer c.enclock.Unlock()
 	var iv []byte
 	if c.enc == nil {
-		c.enclock.Lock()
 		iv, err = c.initEncrypt()
 		if err != nil {
-			c.enclock.Unlock()
 			return
 		}
-		c.enclock.Unlock()
 	}
 
 	cipherData := c.writeBuf
@@ -87,9 +82,7 @@ func (c *Conn) Write(b []byte) (n int, err error) {
 		// iv and data.
 		copy(cipherData, iv)
 	}
-	c.enclock.Lock()
 	c.encrypt(cipherData[len(iv):], b)
-	c.enclock.Unlock()
 	n, err = c.Conn.Write(cipherData)
 	return
 }

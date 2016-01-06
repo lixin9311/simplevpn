@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 )
 
 // 48 bits Mac addr
@@ -15,10 +16,12 @@ func (h HwAddr) String() string {
 
 // Interface is the abstract class of an network interface.
 type Interface struct {
-	tap  bool
-	file *os.File
-	name string
-	mac  HwAddr
+	rlock sync.Mutex
+	wlock sync.Mutex
+	tap   bool
+	file  *os.File
+	name  string
+	mac   HwAddr
 }
 
 // Create a new tap device.
@@ -44,11 +47,15 @@ func (ifce *Interface) Name() string {
 
 // Implement io.Writer interface.
 func (ifce *Interface) Write(p []byte) (int, error) {
+	ifce.wlock.Lock()
+	defer ifce.wlock.Unlock()
 	return ifce.file.Write(p)
 }
 
 // Implement io.Reader interface.
 func (ifce *Interface) Read(p []byte) (int, error) {
+	ifce.rlock.Lock()
+	defer ifce.rlock.Unlock()
 	return ifce.file.Read(p)
 }
 

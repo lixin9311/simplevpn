@@ -11,6 +11,7 @@ import (
 
 var (
 	file = flag.String("c", "config.toml", "Config file.")
+	enc  = flag.Bool("e", false, "no encrypt")
 )
 
 func readConf(path string) (*Config, error) {

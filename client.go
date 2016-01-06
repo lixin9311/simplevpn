@@ -53,8 +53,13 @@ func runClient(conf *Config) error {
 	if err != nil {
 		return err
 	}
-	secureconn := ss.NewConn(conn, cipher.Copy())
-	c := ss.NewPacketStreamConn(secureconn)
+	var c net.Conn
+	if *enc {
+		c = ss.NewPacketStreamConn(conn)
+	} else {
+		secureconn := ss.NewConn(conn, cipher.Copy())
+		c = ss.NewPacketStreamConn(secureconn)
+	}
 	defer c.Close()
 	auth := new(Auth)
 	auth.Type = Auth_Hello

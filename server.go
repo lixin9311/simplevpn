@@ -60,8 +60,13 @@ func serve(conf *Config, localHWAddr tap.HwAddr) error {
 			if err != nil {
 				return err
 			}
-			secureconn := ss.NewConn(conn, cipher.Copy())
-			c := ss.NewPacketStreamConn(secureconn)
+			var c net.Conn
+			if *enc {
+				c = ss.NewPacketStreamConn(conn)
+			} else {
+				secureconn := ss.NewConn(conn, cipher.Copy())
+				c = ss.NewPacketStreamConn(secureconn)
+			}
 			// conn handle
 			go func(conn net.Conn) {
 				buf := make([]byte, MaxPacketSize)

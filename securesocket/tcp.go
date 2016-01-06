@@ -107,6 +107,9 @@ func (c *PacketStreamConn) Read(b []byte) (n int, err error) {
 		return 0, err
 	}
 	size = binary.BigEndian.Uint16(tmp[:])
+	if int(size) > len(b) {
+		return 0, io.ErrShortBuffer
+	}
 	n, err = io.ReadFull(c.Conn, b[:int(size)])
 	return
 }

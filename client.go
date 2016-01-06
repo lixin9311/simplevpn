@@ -10,6 +10,7 @@ import (
 )
 
 func runClient(conf *Config) error {
+	hub.Init()
 	test := net.ParseIP(conf.Server.Ip)
 	v6 := false
 	if test.To4() == nil {
@@ -25,6 +26,9 @@ func runClient(conf *Config) error {
 		return err
 	}
 	defer ifce.Close()
+	local := &Client{MacAddr: ifce.MacAddr(), Conn: ifce}
+	local.Init()
+	hub.Connect(local)
 	if !v6 {
 		ip, ip_mask, err := net.ParseCIDR(conf.Server.Ip + "/32")
 		if err != nil {
@@ -89,7 +93,8 @@ func runClient(conf *Config) error {
 	err = ifce.SetIP(ip_mask)
 	if err != nil {
 		log.Println("Failed to set IP address:", err)
-		return err
+		log.Println("Maybe you can manually fix that, so go on.")
+		//return err
 	}
 	ip, ip_mask, err = net.ParseCIDR("0.0.0.0/1")
 	if err != nil {
@@ -121,9 +126,9 @@ func runClient(conf *Config) error {
 		ip = net.ParseIP(auth.GateWay)
 		ifce.DelRoute(ip, ip_mask)
 	}()
-	go PipeThenClose(ifce, c)
-	PipeThenClose(c, ifce)
-	return nil
+	client := &Client{MacAddr: BroadcastAddr, Conn: c}
+	hub.Connect(client)
+	return client.Run()
 }
 
 func PipeThenClose(src, dst io.ReadWriteCloser) {

@@ -12,6 +12,7 @@ import (
 var (
 	file = flag.String("c", "config.toml", "Config file.")
 	enc  = flag.Bool("e", false, "no encrypt")
+	udp  = flag.Bool("u", false, "udp")
 )
 
 func readConf(path string) (*Config, error) {

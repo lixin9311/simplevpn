@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"github.com/lixin9311/simplevpn/tap"
 	"io"
 	"log"
+	"net"
 	"sync"
 )
 
@@ -18,8 +20,9 @@ var (
 )
 
 type Hub struct {
-	Clients map[tap.HwAddr]*Client
-	input   <-chan []byte
+	Clients        map[tap.HwAddr]*Client
+	Packet_clients map[net.Addr]*Client
+	input          chan []byte
 	sync.Mutex
 }
 
@@ -44,6 +47,9 @@ func (h *Hub) Connect(client *Client) {
 	defer h.Unlock()
 	log.Printf("Client with MacAddr %s connected.\n", client.MacAddr)
 	h.Clients[client.MacAddr] = client
+	if client.is_packet {
+		h.Packet_clients[client.remoteAddr] = client
+	}
 }
 
 func (h *Hub) Disonnect(client *Client) {
@@ -51,6 +57,9 @@ func (h *Hub) Disonnect(client *Client) {
 	defer h.Unlock()
 	log.Printf("Client with MacAddr %s disconnected.\n", client.MacAddr)
 	delete(h.Clients, client.MacAddr)
+	if client.is_packet {
+		delete(h.Packet_clients, client.remoteAddr)
+	}
 }
 
 func (h *Hub) Broadcast(data []byte, src tap.HwAddr) {
@@ -79,8 +88,12 @@ func (h *Hub) Unicast(data []byte, addr tap.HwAddr) (n int, err error) {
 }
 
 type Client struct {
-	MacAddr tap.HwAddr
-	Conn    io.ReadWriter
+	MacAddr    tap.HwAddr
+	Conn       io.ReadWriter
+	is_packet  bool
+	PacketConn net.PacketConn
+	input      chan []byte
+	remoteAddr net.Addr
 }
 
 func (c *Client) Init() {
@@ -88,7 +101,7 @@ func (c *Client) Init() {
 		defer hub.Disonnect(c)
 		for {
 			buf := make([]byte, MaxPacketSize)
-			n, err := c.Conn.Read(buf)
+			n, err := c.Read(buf)
 			if err != nil {
 				log.Printf("Err when read from client[%s]:%v\n", c.MacAddr, err)
 				break
@@ -102,7 +115,7 @@ func (c *Client) Run() error {
 	defer hub.Disonnect(c)
 	for {
 		buf := make([]byte, MaxPacketSize)
-		n, err := c.Conn.Read(buf)
+		n, err := c.Read(buf)
 		if err != nil {
 			log.Printf("Err when read from client[%s]:%v\n", c.MacAddr, err)
 			return err
@@ -112,11 +125,26 @@ func (c *Client) Run() error {
 }
 
 func (c *Client) Write(data []byte) (n int, err error) {
-	n, err = c.Conn.Write(data)
+	if c.is_packet {
+		n, err = c.PacketConn.WriteTo(data, c.remoteAddr)
+	} else {
+		n, err = c.Conn.Write(data)
+	}
 	return
 }
 
 func (c *Client) Read(data []byte) (n int, err error) {
-	n, err = c.Conn.Read(data)
+	if c.is_packet {
+		buf := <-c.input
+		if len(data) < len(buf) {
+			log.Println("Buffer too short:", len(buf))
+			err = fmt.Errorf("Buffer too short")
+			return
+		}
+		copy(data, buf)
+		n = len(buf)
+	} else {
+		n, err = c.Conn.Read(data)
+	}
 	return
 }

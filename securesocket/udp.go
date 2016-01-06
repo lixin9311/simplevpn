@@ -3,9 +3,12 @@ package securesocket
 import (
 	"errors"
 	"net"
+	"sync"
 )
 
 type PacketConn struct {
+	rlock sync.Mutex
+	wlock sync.Mutex
 	net.PacketConn
 	*Cipher
 	readBuf  []byte
@@ -29,6 +32,8 @@ func (c *PacketConn) Close() error {
 }
 
 func (c *PacketConn) ReadFrom(b []byte) (n int, src net.Addr, err error) {
+	c.rlock.Lock()
+	defer c.rlock.Unlock()
 	n, src, err = c.PacketConn.ReadFrom(c.readBuf[0:])
 	if err != nil {
 		return
@@ -47,6 +52,8 @@ func (c *PacketConn) ReadFrom(b []byte) (n int, src net.Addr, err error) {
 }
 
 func (c *PacketConn) WriteTo(b []byte, dst net.Addr) (n int, err error) {
+	c.wlock.Lock()
+	defer c.wlock.Unlock()
 	dataStart := 0
 
 	var iv []byte
